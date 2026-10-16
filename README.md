@@ -6,7 +6,7 @@
 
 ![Status](https://img.shields.io/badge/status-daily%20driver-238636?style=flat-square) ![Debian](https://img.shields.io/badge/Debian-13%20Trixie-A81D33?style=flat-square&logo=debian) ![Desktop](https://img.shields.io/badge/KDE-Plasma%206-1D99F3?style=flat-square&logo=kde) ![Display](https://img.shields.io/badge/display-Wayland-555?style=flat-square) ![Updates](https://img.shields.io/badge/document-living-blue?style=flat-square)
 
-**Last updated:** 15 October 2026 · **Maintainer:** ashvin · **Machine:** PEACEKEEPER
+**Last updated:** 16 October 2026 · **Maintainer:** ashvin · **Machine:** PEACEKEEPER
 
 > [!NOTE]
 > This is a **record of the configuration that worked on this particular machine**, not a universal Chromebook installer. Items marked **Verified** were reported working; **Check** means the result needs validation after future updates; **Historical** means it was part of the journey but is no longer the current setup. A command in a code block is documentation, **not** a command to execute blindly.
@@ -16,7 +16,7 @@
 ## Contents
 
 1. [The machine and the mission](#1-the-machine-and-the-mission)
-2. [From ChromeOS to Debian dual boot](#2-from-chromeos-to-debian-dual-boot)
+2. [From ChromeOS to Debian dual boot — complete beginner's route](#2-from-chromeos-to-debian-dual-boot--the-complete-beginners-route)
 3. [The great input-device rebellion](#3-the-great-input-device-rebellion)
 4. [Audio: the silent treatment](#4-audio-the-silent-treatment)
 5. [From XFCE to KDE Plasma Wayland](#5-from-xfce-to-kde-plasma-wayland)
@@ -57,23 +57,260 @@
 
 ---
 
-## 2. From ChromeOS to Debian dual boot
+## 2. From ChromeOS to Debian dual boot — the complete beginner's route
 
-**Status: Verified booting both systems.**
+**Outcome on PEACEKEEPER:** ChromeOS was preserved; Debian 13 (amd64) was installed on the internal eMMC; MrChromebox **RW_LEGACY / edk2** provides the alternative UEFI boot route. Debian initially ran XFCE, then KDE Plasma Wayland.
 
-The Chromebook was placed into **Developer Mode** and configured with **MrChromebox RW_LEGACY / edk2** firmware. This preserves the stock ChromeOS installation while making an alternate boot path available. Debian 13 was installed on a partition of the internal eMMC (approximately **64 GB allocated to Debian**), with GRUB reached through the alternate firmware boot route.
+> [!CAUTION]
+> **Read this chapter completely before running anything.** Enabling Chromebook Developer Mode **erases local ChromeOS user data**. Creating an installer USB **erases the USB drive**. Choosing the wrong partition in the Debian installer can **destroy ChromeOS and your files**. This is a supervised procedure with deliberate stop-and-check points, **not** a blind copy/paste script. If you're under 18, involve a technically competent adult before changing firmware or disk partitions.
 
-### What mattered
+### 2.1 The five things you're about to do
 
-- **ChromeOS was preserved**, rather than replacing the stock firmware or wiping the whole drive.
-- The board identifier **AWASUKI** mattered when looking up Chromebook-specific support.
-- Debian booted successfully through edk2/GRUB.
-- The installation initially used **XFCE**, before migrating to Plasma.
+Think of the machine as having five layers:
+
+| Layer | What it means | What we'll change |
+|---|---|---|
+| **ChromeOS** | The Google operating system already installed | **Keep it** |
+| **Developer Mode** | Allows advanced boot options; weakens normal ChromeOS protections | Enable it |
+| **Firmware** | Low-level software that starts before an OS | Add **RW_LEGACY**, **not Full ROM** |
+| **Disk partitions** | Separate areas of the internal storage | Shrink ChromeOS data space; create Linux space |
+| **Debian** | A separate operating system | Install it in the new space |
+
+**RW_LEGACY ≠ UEFI Full ROM.** RW_LEGACY adds an alternative boot payload while preserving the stock ChromeOS firmware. **Full ROM replaces the normal boot firmware and is not the procedure described here.** On PEACEKEEPER the RW_LEGACY payload uses **edk2 (UEFI)**, so the Debian USB and installed system need to boot in UEFI mode.
+
+### 2.2 Confirm your Chromebook is supported — BEFORE touching anything
+
+PEACEKEEPER is an **ASUS CX1405CKA / CB1405CKA**, board **AWASUKI**, Intel Celeron **N4500** (64-bit x86), **128 GB eMMC**. **Don't assume your Chromebook is identical** just because the outside looks similar.
+
+1. Visit [MrChromebox's supported devices documentation](https://docs.mrchromebox.tech/docs/supported-devices.html).
+2. Find your **board name** and check whether **RW_LEGACY** is supported.
+3. Read the [MrChromebox getting-started guide](https://docs.mrchromebox.tech/docs/getting-started.html).
+4. Check the [Chrultrabook dual-boot partitioning guide](https://docs.chrultrabook.com/docs/installing/dualboot.html).
+5. If support is absent or unclear, **stop**. A successful PEACEKEEPER installation does not establish compatibility for another model.
+
+**What to gather:** the Chromebook and its charger, a separate Windows PC to prepare the USB, a **USB stick of at least 8 GB** (16 GB is comfortable), reliable internet, backups, and time. A USB mouse/keyboard can help if Chromebook-specific input drivers don't work immediately.
+
+### 2.3 Back up ChromeOS and make recovery media
+
+Before Developer Mode:
+
+1. Copy files from **Downloads** and any other local folders to external storage or Google Drive. Google account sync is **not** a substitute for checking local files.
+2. Record Wi-Fi passwords and any non-synced app data you need.
+3. On another computer, prepare **ChromeOS recovery media** using the official [Chromebook Recovery Utility](https://support.google.com/chromebook/answer/1080595). Use a *separate* USB stick if possible.
+4. Keep the Chromebook plugged in.
 
 > [!WARNING]
-> **Do not treat this paragraph as a fresh-install recipe.** Exact partition boundaries, firmware key sequences, and the actual boot menu entries were not retained in the available notes. Re-derive them from the live device before attempting a reinstall. Firmware and ChromeOS updates can affect dual-boot behaviour. Keep recovery media and a backup before changing firmware or partitions.
+> ChromeOS recovery media is an emergency escape hatch, **not** a guaranteed way to preserve an existing dual-boot installation. A full ChromeOS recovery generally overwrites the disk layout. Recovery can erase Debian.
 
-**Historical snag:** Debian booted, but the built-in keyboard and touchpad stopped responding once the kernel took over. The keyboard still worked in the boot menu. `i8042.reset` did **not** solve the problem. At least the computer had the courtesy to boot before refusing to speak to us.
+### 2.4 Download Debian 13 — which ISO?
+
+Use the **official Debian download pages**:
+
+- [Debian 13 (Trixie) installer downloads](https://www.debian.org/releases/trixie/debian-installer/)
+- [Debian amd64 installation manual](https://www.debian.org/releases/trixie/amd64/index.en.html)
+- [Debian image checksums and verification information](https://www.debian.org/CD/verify)
+
+For this **Intel** Chromebook, choose **amd64** (meaning 64-bit x86, **not** AMD-only). Do **not** choose arm64.
+
+A beginner-friendly choice is the **amd64 netinst ISO**, which downloads extra packages during installation. It needs a working network connection; if Wi-Fi support is uncertain, consider an official larger installation image or a compatible USB Ethernet adapter.
+
+1. Open the Debian installer downloads link.
+2. Choose the **amd64 netinst** image.
+3. Save the `.iso` file to your Windows PC's Downloads folder.
+4. Check the image against Debian's published checksum/signature instructions if possible; do not trust a random third-party ISO mirror.
+
+**Important:** Debian installer versions change. Download the current **Debian 13** image rather than hard-coding an old ISO filename.
+
+### 2.5 Download Rufus on Windows and make the installer USB
+
+**Rufus** is a small Windows program that writes an ISO to a USB stick so a computer can boot from it. It is **not** installed on the Chromebook.
+
+Official website: **https://rufus.ie/** ([Rufus documentation](https://rufus.ie/)).
+
+1. On the Windows PC, visit **rufus.ie** and download the **standard** or **portable** x64 version. The portable version is fine; no traditional installer is needed.
+2. Insert your USB stick. **Copy anything important off it first.**
+3. Run Rufus; approve the Windows administrator prompt if shown.
+4. Under **Device**, select the **USB stick**, checking its capacity and name. **Do not select an external backup drive.**
+5. Under **Boot selection**, choose **Disk or ISO image** → **SELECT** → your downloaded Debian `.iso`.
+6. For a PEACEKEEPER-style **edk2/UEFI** boot, use **GPT** as the partition scheme and **UEFI (non CSM)** if Rufus exposes those choices. Rufus may select suitable defaults for a hybrid Debian ISO.
+7. Leave other options at defaults unless the Debian/Rufus documentation specifically calls for a change.
+8. Click **START**. Rufus may ask whether to use **ISO image mode** or **DD image mode**. Try its recommended/default mode first; if the USB fails to boot, recreate it using **DD image mode**.
+9. Read the erase warning and confirm **only if the selected USB device is correct**.
+10. Wait for **READY**, close Rufus and safely eject the USB.
+
+**Common beginner mistake:** copying the `.iso` file onto a normal USB drive does **not** usually make it bootable. Rufus writes the ISO as boot media.
+
+### 2.6 Enable Chromebook Developer Mode
+
+**Warning: this erases local ChromeOS user data and reduces ChromeOS boot-security protections.** Back up first.
+
+1. Shut down the Chromebook and connect the charger.
+2. Hold **Esc + Refresh (↻)**, then press **Power**. Release when the recovery screen appears.
+3. At the recovery screen, press **Ctrl + D**. Follow the on-screen confirmation, often **Enter**, to enable Developer Mode.
+4. Allow the Chromebook to reset. This may take several minutes. Do **not** interrupt the reset.
+5. On the Developer Mode / OS verification screen, **Ctrl + D** normally boots ChromeOS. Complete initial setup if needed.
+
+The precise appearance of these screens varies with ChromeOS versions. Use the [MrChromebox Developer Mode guide](https://docs.mrchromebox.tech/docs/boot-modes/developer.html) if your screen differs.
+
+> [!IMPORTANT]
+> **Do not press Space to re-enable OS verification after you've installed Debian.** Leaving Developer Mode can wipe local data and disrupt your alternate-boot configuration.
+
+### 2.7 Open the correct ChromeOS terminal (VT2)
+
+This is a major trap for readers following older tutorials. **ChromeOS 117 and newer removed the `sudo` workflow from the normal crosh shell.**
+
+1. Boot ChromeOS to its **login screen**.
+2. Press **Ctrl + Alt + F2**. On Chromebook keyboards, the key may be represented by the **right-arrow (→)** top-row key.
+3. Log in as **`chronos`**.
+4. You should see a text-mode shell called **VT2**.
+
+Do **not** use the Linux development environment (**Crostini / penguin**); it is a container and cannot flash Chromebook firmware. Also don't run the firmware utility from a root login shell.
+
+Source: [MrChromebox Firmware Utility instructions](https://docs.mrchromebox.tech/docs/fwscript).
+
+### 2.8 Install MrChromebox RW_LEGACY firmware
+
+The **official** firmware script is:
+
+```bash
+cd
+curl -LOf https://mrchromebox.tech/firmware-util.sh
+sudo bash firmware-util.sh
+```
+
+**Read before pasting:** the characters in `-LOf` are **capital L, capital O, lowercase f**. This downloads the official script into your home directory and then executes it with elevated privileges. Inspect the [script source](https://github.com/MrChromebox/scripts) if you want to understand what you're running.
+
+Inside the firmware utility:
+
+1. Confirm the displayed **board/device** matches yours.
+2. Select **Install/Update RW_LEGACY Firmware** (documented as **option 1**).
+3. Read every prompt and allow the RW_LEGACY firmware installation to complete.
+4. If offered a firmware payload type, use the **UEFI/edk2** option appropriate to the board and installation plan.
+5. **Do not select “Install/Update UEFI (Full ROM) Firmware.”** That's a different, potentially destructive migration.
+6. Exit the utility and reboot as instructed.
+
+RW_LEGACY normally **does not require disabling hardware write protection**. No screwdriver or battery disconnect should be necessary for this path.
+
+Read: [Official firmware utility](https://docs.mrchromebox.tech/docs/fwscript) and [Legacy/AltFw boot explanation](https://docs.mrchromebox.tech/docs/boot-modes/legacy.html).
+
+**Expected outcome:** a Developer Mode boot screen offering the alternate boot route, usually **Ctrl + L** or **Alternative Bootloader**. On some newer Chromebooks, this opens a menu rather than booting immediately.
+
+### 2.9 Make room for Debian WITHOUT erasing ChromeOS
+
+This is the **highest-risk step**. A Chromebook disk is not laid out like a normal Windows laptop. ChromeOS uses multiple special partitions; blindly clicking **“Erase disk”** in the Debian installer will remove ChromeOS.
+
+The [Chrultrabook dual-boot guide](https://docs.chrultrabook.com/docs/installing/dualboot.html) currently recommends **CRAP**, a ChromeOS-aware partitioning tool, to shrink the **stateful** ChromeOS partition without rearranging the system partitions.
+
+**Do not run a random partitioning command copied from an old blog post.** The partition tool, available space, and exact disk layout must be checked for the reader's device.
+
+On PEACEKEEPER, the goal was **roughly 64 GB for Debian** out of 128 GB eMMC. That is a **personal choice**, not a universal partition size.
+
+Before changing anything, record the existing layout in the root-capable ChromeOS shell:
+
+```bash
+lsblk -o NAME,SIZE,FSTYPE,PARTLABEL,MOUNTPOINTS
+```
+
+Then follow the **current** Chrultrabook partitioning instructions linked above. Their current guide describes running their CRAP tool from **VT2 as root**; this is a **separate, explicitly privileged partitioning operation**, unlike the firmware utility's normal-user launch.
+
+> [!CAUTION]
+> **Mandatory stop-and-check:** after shrinking the ChromeOS data partition, confirm you have **unallocated/free space** intended for Linux. Do not proceed if you cannot clearly identify it. The precise PEACEKEEPER partition numbers and commands were not preserved in our conversation, so this journal **will not invent them**. The machine worked; that is not permission to guess `/dev/mmcblk0pN` on somebody else's laptop.
+
+### 2.10 Boot the Debian installer USB
+
+1. Shut down the Chromebook.
+2. Insert the Rufus-prepared Debian USB.
+3. Power on and choose the **Alternative Bootloader / Ctrl + L** route on the Developer Mode screen.
+4. In the **edk2 UEFI** menu, use the boot menu (often **Esc**) to choose the USB device. The exact display depends on firmware version.
+5. Select **Graphical install** or **Install** in Debian's boot menu.
+
+If the USB isn't listed, **do not reinstall firmware blindly**. Check the USB image, Rufus settings, USB port, and UEFI boot mode. Try a different USB stick or Rufus **DD mode**.
+
+### 2.11 Install Debian: every major installer decision
+
+The Debian installer guides you through several screens:
+
+| Installer screen | What to do |
+|---|---|
+| Language | Choose your preferred language |
+| Location | Choose your country |
+| Keyboard | Pick the closest layout; KDE can refine it later |
+| Network | Connect to Wi-Fi if detected; otherwise use compatible USB Ethernet or offline media |
+| Hostname | For our machine, `PEACEKEEPER` |
+| Users/passwords | Create a normal user; protect credentials |
+| **Partition disks** | Choose **Manual** — **never “Guided - use entire disk”** |
+| Software selection | A modest desktop such as **XFCE** is a good starting point |
+| Bootloader | Install **GRUB for UEFI** to the intended EFI System Partition, after verifying the disk layout |
+
+**The manual partitioning checkpoint is not optional.**
+
+- Locate the **free space** created in §2.9, not an existing ChromeOS partition.
+- Create an **ext4 root filesystem** mounted at `/` in that free space.
+- Swap can be configured later; do not create swap at the expense of a usable root partition without understanding the tradeoff.
+- An EFI System Partition (ESP) is required for UEFI boot. The Chrultrabook guide notes that ChromeOS **partition 12** may be repurposed as an ESP in some stock layouts, **but do not assume partition 12 is safe on your machine**. Identify the ESP by its actual type, size and purpose and follow the current model-specific guide.
+- Review the installer's **final partition summary** before accepting changes. If any ChromeOS data/system partition is unexpectedly marked **format**, **delete**, or **resize**, **cancel** and investigate.
+
+> [!WARNING]
+> There is **no safe universal copy/paste command** for repartitioning a Chromebook. Device names, existing partitions, EFI handling and free space vary. The exact partition choices are intentionally not supplied as fake “known good” commands.
+
+Read the [Debian 13 amd64 installer manual](https://www.debian.org/releases/trixie/amd64/index.en.html), especially the chapters on partitioning and installing the bootloader.
+
+### 2.12 First boot and confirming BOTH systems survive
+
+1. When Debian finishes, shut down or reboot and remove the installer USB when prompted.
+2. Choose **Alternative Bootloader / Ctrl + L**, then the Debian/GRUB boot entry.
+3. Log into Debian. Verify basic hardware.
+4. Reboot and choose **Ctrl + D** (ChromeOS) at the Developer Mode screen.
+5. Confirm ChromeOS still starts. Then boot Debian again.
+
+On Debian, gather a quick diagnostic snapshot:
+
+```bash
+cat /etc/os-release
+uname -m
+lsblk -o NAME,SIZE,FSTYPE,PARTLABEL,MOUNTPOINTS
+findmnt /
+```
+
+Expected architecture is **`x86_64`**. The Debian release should identify **13 / trixie**. **Do not modify partitions merely because their names differ from an example.**
+
+### 2.13 Problems we actually encountered on PEACEKEEPER
+
+| Symptom | What we learned |
+|---|---|
+| Debian boots, but touchpad doesn't work properly | Fixed later with a **libinput pressure quirk** (§3.1) |
+| Built-in keyboard initially unresponsive in Linux | Worked after investigation; final KDE layout configured (§3.2 and §6) |
+| Sound missing | Chromebook-specific **SOF audio** setup needed (§4) |
+| Bootloader works, Linux input doesn't | Boot firmware and Linux device drivers are **separate layers** |
+| `i8042.reset` kernel option | **Did not solve** our keyboard issue |
+| Desktop felt too heavy with unnecessary packages | Lean KDE and selective package removal (§8) |
+
+**And yes, the machine still boots ChromeOS.** The trick is making sure the Chromebook gets two operating systems, not two opportunities to panic.
+
+### 2.14 If something goes wrong
+
+- **Can't enter Developer Mode?** Re-read the official recovery/developer-mode guides; managed school/work devices may restrict it. Do not bypass organizational restrictions.
+- **MrChromebox option unavailable?** Confirm exact board support and that you're running in the correct ChromeOS VT2 shell.
+- **Two beeps at Ctrl + L?** The alternate boot payload or flags may be missing; see [MrChromebox AltFw troubleshooting](https://docs.mrchromebox.tech/docs/boot-modes/legacy.html).
+- **Installer doesn't see internal eMMC?** Stop and diagnose storage/controller support; never choose the USB drive as the target by accident.
+- **Installer shows no free space?** Stop. The ChromeOS partition has not been safely shrunk.
+- **Only ChromeOS boots?** Re-check the alternate boot route and UEFI/GRUB installation; do not format partitions to “fix” a boot menu.
+- **ChromeOS damaged?** Use your prepared recovery media, understanding that a full recovery can erase the Debian installation.
+
+### 2.15 Authoritative reading — bookmark these
+
+| Resource | Why it matters |
+|---|---|
+| [MrChromebox Getting Started](https://docs.mrchromebox.tech/docs/getting-started.html) | Choosing RW_LEGACY versus Full ROM |
+| [MrChromebox Firmware Utility](https://docs.mrchromebox.tech/docs/fwscript) | Correct command, menu, requirements |
+| [MrChromebox Developer Mode](https://docs.mrchromebox.tech/docs/boot-modes/developer.html) | Recovery keys and VT2 access |
+| [Chrultrabook Dual Boot](https://docs.chrultrabook.com/docs/installing/dualboot.html) | **Critical** ChromeOS-aware partition resizing |
+| [Chrultrabook Linux Installation](https://docs.chrultrabook.com/docs/installing/installing-linux) | Linux compatibility and audio |
+| [Debian 13 Installation Manual](https://www.debian.org/releases/trixie/amd64/index.en.html) | Installer and GRUB explanations |
+| [Debian Official Downloads](https://www.debian.org/releases/trixie/debian-installer/) | Authentic installation images |
+| [Rufus](https://rufus.ie/) | Windows USB installer creation |
+
+**Historical accuracy note:** The exact partition-resize transcript, Rufus options chosen at the time, and initial installer screenshots were not preserved. The detailed workflow above is a **beginner-oriented reconstruction from current official documentation**, clearly separated from the **confirmed PEACEKEEPER outcome**. Do not mistake it for a byte-for-byte installation log.
 
 ---
 
@@ -552,6 +789,11 @@ zgrep -hE '^(Start-Date|Commandline|Install|Remove|Purge):' /var/log/apt/history
 ---
 
 ## 14. Changelog and how to add the next fix
+
+### 2026-10-16 — Beginner-friendly installation walkthrough
+
+- Expanded §2 with official downloads, Rufus USB creation, ChromeOS Developer Mode, MrChromebox RW_LEGACY installation, partitioning safety checkpoints, Debian installer choices and dual-boot verification.
+- Distinguished confirmed PEACEKEEPER outcomes from reconstructed beginner instructions; avoided inventing device-specific partition commands.
 
 ### 2026-10-15 — Thunderbird, Birdtray and power indicator
 
