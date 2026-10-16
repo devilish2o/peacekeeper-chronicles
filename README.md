@@ -404,7 +404,7 @@ The practical lesson: *modern Plasma can feel responsive on modest hardware when
 
 The screenshots below are selected captures recovered from our earlier conversation. Captions are intentionally conservative where a screenshot's exact diagnostic context is uncertain.
 
-![PEACEKEEPER desktop and application appearance](assets/desktop-20261015.png)
+![PEACEKEEPER desktop and application appearance](assets/thunderbird-graphite.png)
 
 *Recovered screenshot from the desktop-customization sessions, 15 October 2026.*
 
@@ -842,7 +842,7 @@ Copy this block at the **top of the changelog** whenever we fix something:
 
 This document references a small set of recovered conversation screenshots. They live in `assets/`, so the Markdown remains **one editable journal** while the images remain ordinary GitHub-friendly files. More screenshots can be added later with descriptive names and captions.
 
-- `assets/desktop-20261015.png` — recovered desktop/customization capture.
+- `assets/thunderbird-graphite.png` — recovered desktop/customization capture.
 - `assets/thunderbird-graphite.png` — recovered Thunderbird customization capture.
 
 **Privacy check before publishing publicly:** screenshots can contain email addresses, subject lines, personal files, browser tabs and hostnames. Review and redact images before pushing to a public repository. Likewise, never commit passwords, tokens, private SSH keys, `.kdbx` files or full Thunderbird mail profiles.
