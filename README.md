@@ -26,9 +26,10 @@
 9. [Thunderbird: the graphite makeover](#9-thunderbird-the-graphite-makeover)
 10. [Birdtray: the Wayland-versus-X11 diplomatic incident](#10-birdtray-the-wayland-versus-x11-diplomatic-incident)
 11. [Battery indicator and session polish](#11-battery-indicator-and-session-polish)
-12. [Known compromises and upgrade risks](#12-known-compromises-and-upgrade-risks)
-13. [Diagnostics and quick recovery](#13-diagnostics-and-quick-recovery)
-14. [Changelog and how to add the next fix](#14-changelog-and-how-to-add-the-next-fix)
+12. [Sleep, suspend and resume](#12-sleep-suspend-and-resume-the-chromebook-that-actually-went-to-bed)
+13. [Known compromises and upgrade risks](#13-known-compromises-and-upgrade-risks)
+14. [Diagnostics and quick recovery](#14-diagnostics-and-quick-recovery)
+15. [Changelog and how to add the next fix](#15-changelog-and-how-to-add-the-next-fix)
 
 ---
 
@@ -404,7 +405,7 @@ The practical lesson: *modern Plasma can feel responsive on modest hardware when
 
 The screenshots below are selected captures recovered from our earlier conversation. Captions are intentionally conservative where a screenshot's exact diagnostic context is uncertain.
 
-![PEACEKEEPER desktop and application appearance](assets/thunderbird-graphite.png)
+![PEACEKEEPER desktop and application appearance](assets/desktop-20261015.png)
 
 *Recovered screenshot from the desktop-customization sessions, 15 October 2026.*
 
@@ -719,7 +720,98 @@ systemctl --user restart plasma-powerdevil.service
 
 ---
 
-## 12. Known compromises and upgrade risks
+## 12. Sleep, suspend and resume: the Chromebook that actually went to bed
+
+**Status: Verified — October 16, 2026.** Lid-close suspend, long-duration suspend, and resume to the KDE lock screen work on PEACEKEEPER. **No power-management change was necessary.**
+
+### What should happen when you close the lid?
+
+On a laptop, *suspend* saves the active session in RAM and puts most hardware into a low-power state. It is not the same as merely switching off the display or locking KDE. When you open the lid, the same session should return without a full reboot.
+
+On this ASUS Chromebook, the owner reported closing the lid at approximately **70% battery**, later reopening it to KDE's lock screen with the battery still reading **around 70%**. The LED by the USB-C port blinked while closed. The LED behavior is *consistent* with sleep, but its meaning was **not independently verified** against ASUS documentation; the battery readings were approximate, not a calibrated power measurement.
+
+### Step 1: Check whether Linux actually suspended
+
+Open a terminal and run:
+
+```bash
+sudo journalctl -b -o short-iso --no-pager \
+  | grep -Ei 'PM: suspend entry|PM: suspend exit|Lid closed|Lid opened|systemd-sleep.*(Performing|returned)'
+```
+
+- `sudo`: reads system/kernel messages that an ordinary account might not be allowed to see.
+- `journalctl`: reads the systemd journal; `-b` means the **current boot**.
+- `-o short-iso`: prints actual date/time stamps, including the time-zone offset.
+- `grep -Ei`: selects suspend, resume and lid events, case-insensitively.
+- `--no-pager`: prints output directly instead of opening a scrollable pager.
+
+**A real PEACEKEEPER example (abridged):**
+
+```text
+2026-10-15T23:54:57-04:00 ... kernel: PM: suspend entry (s2idle)
+2026-10-16T21:59:48-04:00 ... kernel: PM: suspend exit
+2026-10-16T21:59:48-04:00 ... systemd-sleep: System returned from sleep operation 'suspend'.
+```
+
+The timestamps show a successful suspend/resume spanning **22 hours and about five minutes**. This establishes the time between suspend entry and resume; it does **not** prove a particular battery-drain percentage or rule out every possible intermediate hardware wake event.
+
+If the command returns nothing, first check whether the laptop was **rebooted** after the sleep test. If so, inspect the previous boot with `sudo journalctl -b -1 ...`. Journal history may be unavailable if persistent logging is disabled.
+
+### Step 2: Understand the suspend modes
+
+Run this **read-only** command:
+
+```bash
+cat /sys/power/mem_sleep
+```
+
+On PEACEKEEPER, the actual result was:
+
+```text
+[s2idle] deep
+```
+
+- **`s2idle`**: suspend-to-idle; currently selected because it is enclosed in brackets.
+- **`deep`**: another suspend mode exposed by the kernel, potentially allowing deeper platform sleep on supported hardware.
+
+**Do not change this setting merely because `deep` sounds better.** Support shown by the kernel does not guarantee reliable suspend/resume on every Chromebook. Since the current `s2idle` configuration works well, the documented decision is **leave it alone**.
+
+### Step 3: What the actual logs showed
+
+| Sleep started (Ottawa time) | Resumed | Approximate elapsed time | Outcome |
+|---|---|---:|---|
+| Oct 13, 23:37 | Oct 14, 21:48 | 22h 11m | Suspend/resume succeeded |
+| Oct 15, 01:31 | Oct 15, 14:34 | 13h 03m | Suspend/resume succeeded |
+| Oct 15, 14:59 | Oct 15, 22:07 | 7h 08m | Suspend/resume succeeded |
+| Oct 15, 22:13 | Oct 15, 22:25 | 12m | Suspend/resume succeeded |
+| Oct 15, 23:54 | Oct 16, 21:59 | 22h 05m | Suspend/resume succeeded |
+
+There were also several **short suspend/resume attempts** around Oct 15, 22:07 and 23:54. The supplied journal does not establish why they occurred; they are not evidence of a failure by themselves. Some journal lines also appear in surprising order around resume. Use wall-clock (`short-iso`) timestamps for elapsed sleep time rather than assuming monotonic journal timestamps include time spent suspended.
+
+### Step 4: Troubleshoot only if sleep starts failing
+
+| Symptom | First safe check |
+|---|---|
+| Lid closes but display merely locks | Review `journalctl` for `PM: suspend entry` |
+| System immediately wakes | Look for nearby lid events and wake-related kernel messages |
+| No system messages visible | Use `sudo journalctl` instead of the unprivileged journal |
+| `Failed to parse timestamp` | Use a literal timestamp, e.g. `--since "2026-10-15 18:00:00"` |
+| Resume works but battery drains noticeably | Record actual battery percentages and times over several nights before changing modes |
+| Resume fails after an update | Check the updated kernel and logs; preserve a known-good boot option where possible |
+
+For a compact view of all suspend activity in the current boot:
+
+```bash
+sudo journalctl -b --no-pager | grep -Ei 'suspend|systemd-sleep|lid closed|lid opened'
+```
+
+If you want to test a short lid-close cycle, **save your work first**, unplug unnecessary peripherals, close the lid for a few minutes, reopen it, and verify that the KDE session returns. Do not experiment with `deep`, kernel parameters or firmware changes until a reproducible problem exists.
+
+**Result:** Long-duration `s2idle` suspend and resume are confirmed working. The reported battery retention is promising, but not a formal power-consumption benchmark. *Sometimes the most advanced Linux fix is not fixing anything.*
+
+---
+
+## 13. Known compromises and upgrade risks
 
 | Area | Likely update resilience | What to verify |
 |---|---|---|
@@ -730,7 +822,7 @@ systemctl --user restart plasma-powerdevil.service
 | Birdtray XWayland workaround | Medium | Autostart, hide/restore after Qt/KDE/Thunderbird changes |
 | SSHFS systemd automount | High | Mount availability and permissions |
 | RW_LEGACY / ChromeOS dual boot | Special care | Boot paths after firmware/ChromeOS updates |
-| Battery life and suspend | Unmeasured | Test against ChromeOS on same hardware |
+| Battery life and suspend | Suspend/resume verified; consumption unmeasured | Retest after kernel or firmware updates |
 
 **Debian gains:** native Linux packages, host-level administration, KDE customization, systemd, SSHFS, development and server tools. **ChromeOS retains advantages:** integrated hardware tuning, verified-boot/security model (subject to Developer Mode), Android app support where available, and generally simpler automatic maintenance. Keeping both systems is the right compromise for this machine.
 
@@ -746,7 +838,7 @@ systemctl --user restart plasma-powerdevil.service
 
 ---
 
-## 13. Diagnostics and quick recovery
+## 14. Diagnostics and quick recovery
 
 These commands inspect the system without changing it:
 
@@ -788,7 +880,12 @@ zgrep -hE '^(Start-Date|Commandline|Install|Remove|Purge):' /var/log/apt/history
 
 ---
 
-## 14. Changelog and how to add the next fix
+## 15. Changelog and how to add the next fix
+
+### 2026-10-16 — Suspend verified without configuration changes
+
+- Added §12 with five real suspend/resume periods, log commands, `s2idle` versus `deep`, and conservative troubleshooting.
+- Verified two approximately 22-hour sleep intervals and successful KDE resume; battery consumption remains unmeasured.
 
 ### 2026-10-16 — Beginner-friendly installation walkthrough
 
@@ -842,8 +939,7 @@ Copy this block at the **top of the changelog** whenever we fix something:
 
 This document references a small set of recovered conversation screenshots. They live in `assets/`, so the Markdown remains **one editable journal** while the images remain ordinary GitHub-friendly files. More screenshots can be added later with descriptive names and captions.
 
-- `assets/thunderbird-graphite.png` — recovered desktop/customization capture.
-- `assets/thunderbird-graphite.png` — recovered Thunderbird customization capture.
+- `assets/thunderbird-graphite.png` — privacy-safe Thunderbird customization capture. The original unredacted image must not be republished.
 
 **Privacy check before publishing publicly:** screenshots can contain email addresses, subject lines, personal files, browser tabs and hostnames. Review and redact images before pushing to a public repository. Likewise, never commit passwords, tokens, private SSH keys, `.kdbx` files or full Thunderbird mail profiles.
 
