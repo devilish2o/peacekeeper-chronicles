@@ -6,7 +6,7 @@
 
 ![Status](https://img.shields.io/badge/status-daily%20driver-238636?style=flat-square) ![Debian](https://img.shields.io/badge/Debian-13%20Trixie-A81D33?style=flat-square&logo=debian) ![Desktop](https://img.shields.io/badge/KDE-Plasma%206-1D99F3?style=flat-square&logo=kde) ![Display](https://img.shields.io/badge/display-Wayland-555?style=flat-square) ![Updates](https://img.shields.io/badge/document-living-blue?style=flat-square)
 
-**Last updated:** 16 October 2026 · **Maintainer:** ashvin · **Machine:** PEACEKEEPER
+**Last updated:** 17 October 2026 · **Maintainer:** ashvin · **Machine:** PEACEKEEPER
 
 > [!NOTE]
 > This is a **record of the configuration that worked on this particular machine**, not a universal Chromebook installer. Items marked **Verified** were reported working; **Check** means the result needs validation after future updates; **Historical** means it was part of the journey but is no longer the current setup. A command in a code block is documentation, **not** a command to execute blindly.
@@ -436,6 +436,28 @@ There was a shortcut conflict; removing the conflicting custom assignment and th
 ### 6.3 Function/media keys — **Verified in Plasma**
 
 The Chromebook media keys (volume and mute) functioned after the desktop/audio fixes. The keyboard layout was tuned for the actual Canadian-labelled Chromebook keyboard, rather than assuming a generic US PC keyboard.
+
+### 6.4 Window opacity and Always on Top — **Verified in Plasma Wayland**
+
+**Goal:** recreate the useful parts of WindowTop without installing a permanent background utility: make the active window more or less transparent, or keep it above other windows.
+
+These are **KWin window-management shortcuts**, configured in KDE **System Settings → Keyboard → Shortcuts** (search for the corresponding window actions):
+
+| Action | PEACEKEEPER shortcut |
+|---|---|
+| Decrease opacity of the active window | `Meta+Shift+-` |
+| Increase opacity of the active window | `Meta+Shift+=` |
+| Toggle **Keep Above Others** (Always on Top) | `Meta+Shift+T` |
+
+On this Chromebook, **Meta** is the Google-logo/Search key. These are **custom assignments**, not universal KDE defaults; a different keyboard layout may require adjusting the `-` and `=` keys.
+
+**What went wrong:** We briefly set **System Settings → Window Management → Window Behavior → Window Actions → Mouse wheel** to **Change opacity**. Two-finger touchpad scrolling made the active window transparent much too quickly — including an almost invisible terminal. We restored the mouse-wheel action to **Do nothing** and kept the precise keyboard shortcuts instead.
+
+**Recovery:** Focus the affected window and press `Meta+Shift+=` repeatedly to restore opacity. In our testing, closing and reopening the affected window also restored normal opacity.
+
+**Limits:** This changes appearance and stacking order, **not click-through behavior**. A transparent window can still receive pointer input; arbitrary click-through overlays were not implemented on KWin Wayland. No extra daemon or WindowTop clone was installed.
+
+*If your terminal vanishes, check the opacity before blaming the kernel.*
 
 ---
 
@@ -881,6 +903,12 @@ zgrep -hE '^(Start-Date|Commandline|Install|Remove|Purge):' /var/log/apt/history
 ---
 
 ## 15. Changelog and how to add the next fix
+
+### 2026-10-16 — Lightweight WindowTop-style window controls
+
+- Documented §6.4: KWin shortcuts for active-window opacity and **Keep Above Others**.
+- Reverted touchpad/mouse-wheel opacity control because it was too sensitive; retained keyboard-only adjustments.
+- Clarified that opacity does not provide click-through overlays under Wayland.
 
 ### 2026-10-16 — Suspend verified without configuration changes
 
